@@ -10,7 +10,7 @@ router.get('/api/cart/:userId', authMiddleware, async (req, res) => {
   }
   try {
     const result = await pool.query(
-      'SELECT id, product_id, product_name as name, image_url as image, is_veg, price, quantity FROM cart WHERE user_id = $1',
+      'SELECT id, product_id, product_name as name, image as image, is_veg, price, quantity FROM cart WHERE user_id = $1',
       [userId]
     );
     res.json({ success: true, cart: result.rows });
@@ -24,14 +24,29 @@ router.get('/api/cart/:userId', authMiddleware, async (req, res) => {
 });
 
 router.post('/api/cart', authMiddleware, async (req, res) => {
-  const { user_id, product_id, product_name, image_url, is_veg, price, quantity } = req.body;
+  const { user_id, product_id, product_name, image, is_veg, price, quantity } = req.body;
   if (req.user.id !== user_id) {
     return res.status(403).json({ success: false, error: 'Unauthorized' });
   }
   try {
+    // Check if item already exists in cart
+    const existingItem = await pool.query(
+      'SELECT id, quantity FROM cart WHERE user_id = $1 AND product_id = $2',
+      [user_id, product_id]
+    );
+    if (existingItem.rows.length > 0) {
+      // Update quantity if item exists
+      const newQuantity = existingItem.rows[0].quantity + quantity;
+      const result = await pool.query(
+        'UPDATE cart SET quantity = $1 WHERE id = $2 RETURNING id, product_id, product_name as name, image, is_veg, price, quantity',
+        [newQuantity, existingItem.rows[0].id]
+      );
+      return res.json({ success: true, item: result.rows[0] });
+    }
+    // Insert new item if it doesn't exist
     const result = await pool.query(
-      'INSERT INTO cart (user_id, product_id, product_name, image_url, is_veg, price, quantity) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, product_id, product_name as name, image_url as image, is_veg, price, quantity',
-      [user_id, product_id, product_name, image_url, is_veg, price, quantity]
+      'INSERT INTO cart (user_id, product_id, product_name, image, is_veg, price, quantity) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, product_id, product_name as name, image, is_veg, price, quantity',
+      [user_id, product_id, product_name, image, is_veg, price, quantity]
     );
     res.json({ success: true, item: result.rows[0] });
   } catch (err) {
@@ -48,7 +63,7 @@ router.put('/api/cart/:id', authMiddleware, async (req, res) => {
   const { quantity } = req.body;
   try {
     const result = await pool.query(
-      'UPDATE cart SET quantity = $1 WHERE id = $2 AND user_id = $3 RETURNING id, product_id, product_name as name, image_url as image, is_veg, price, quantity',
+      'UPDATE cart SET quantity = $1 WHERE id = $2 AND user_id = $3 RETURNING id, product_id, product_name as name, image, is_veg, price, quantity',
       [quantity, id, req.user.id]
     );
     if (result.rows.length === 0) {
@@ -81,6 +96,23 @@ router.delete('/api/cart/:id', authMiddleware, async (req, res) => {
       return res.status(500).json({ success: false, error: 'Cart table does not exist' });
     }
     res.status(500).json({ success: false, error: 'Failed to delete from cart' });
+  }
+});
+
+router.delete('/api/cart/all/:userId', authMiddleware, async (req, res) => {
+  const { userId } = req.params;
+  if (req.user.id !== parseInt(userId)) {
+    return res.status(403).json({ success: false, error: 'Unauthorized' });
+  }
+  try {
+    await pool.query('DELETE FROM cart WHERE user_id = $1', [userId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error clearing cart:', err);
+    if (err.code === '42P01') {
+      return res.status(500).json({ success: false, error: 'Cart table does not exist' });
+    }
+    res.status(500).json({ success: false, error: 'Failed to clear cart' });
   }
 });
 
@@ -132,7 +164,6 @@ router.get('/api/cart/orders/:userId', authMiddleware, async (req, res) => {
   }
 });
 
-// New endpoint for fetching a single order
 router.get('/api/cart/orders/:userId/:orderId', authMiddleware, async (req, res) => {
   const { userId, orderId } = req.params;
   if (req.user.id !== parseInt(userId)) {
