@@ -24,7 +24,7 @@ const PORT = process.env.PORT || 5000;
 // MIDDLEWARES
 // -----------------------------------------------------------------------------
 app.use(cors({
-  origin: ['https://resilient-salamander-295126.netlify.app', 'http://localhost:5173'], // Allow only your frontend
+  origin: ['https://food-ordring-plateform.netlify.app', 'http://localhost:5173'], // Allow only your frontend
   methods: ['GET', 'POST', 'PATCH', 'DELETE'],              // Allowed HTTP methods
   allowedHeaders: ['Content-Type', 'Authorization'],        // Allow auth headers
   credentials: true                                         // Allow cookies/auth info
@@ -107,3 +107,4 @@ app.use("/api", addressRoutes);
 app.listen(PORT, () => {
   console.log(`Food Ordering API running at: http://localhost:${PORT}`);
 });
+
