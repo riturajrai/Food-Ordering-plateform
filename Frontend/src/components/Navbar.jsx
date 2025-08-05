@@ -220,7 +220,6 @@ function Navbar() {
     { path: '/contact', label: 'Contact' },
     { path: '/profile', label: 'Profile', protected: true },
     { path: '/order-history', label: 'Order History', protected: true },
-    { path: '/cart', label: 'Cart' },
   ];
 
   return (
