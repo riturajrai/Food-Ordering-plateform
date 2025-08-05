@@ -8,11 +8,24 @@ const pool = new Pool({
   port: 5432,
   ssl: {
     rejectUnauthorized: false
-  }
+  },
+  // Extra options to prevent ECONNRESET
+  max: 10, // Max simultaneous connections
+   // 30s idle timeout
+  idleTimeoutMillis: 30000,
+   // 10s connection timeout
+  connectionTimeoutMillis: 10000
 });
 
-pool.connect()
-  .then(() => console.log('Connected to PostgreSQl'))
-  .catch(err => console.error('Connection error', err));
+// Optional: Test connection once on startup
+(async () => {
+  try {
+    const client = await pool.connect();
+    console.log('Connected to PostgreSQL');
+    client.release(); // release back to pool
+  } catch (err) {
+    console.error('PostgreSQL connection error:', err.message);
+  }
+})();
 
 module.exports = pool;
